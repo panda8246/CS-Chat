@@ -16,18 +16,30 @@ public class Client
     {
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _socket.Connect(IPEndPoint.Parse("127.0.0.1:8080"));
-        WaitOne();
+        Thread wirteThread = new Thread(Write);
+        Thread readThread = new Thread(ReadFromServer);
+        wirteThread.Start();
+        readThread.Start();
+        wirteThread.Join();
+        readThread.Join();
     }
 
-    public void WaitOne()
+    public void Write()
     {
-        byte[] bytes = new byte[1024];
         while (_socket.Connected)
         {
             string str = Console.ReadLine();
             if (str == null)
                 continue;
             _socket.Send(Encoding.UTF8.GetBytes(str));
+        }
+    }
+
+    public void ReadFromServer()
+    {
+        byte[] bytes = new byte[1024];
+        while (_socket.Connected)
+        {
             int byteLength = _socket.Receive(bytes);
             if (byteLength > 0)
             {

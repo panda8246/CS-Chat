@@ -14,7 +14,7 @@ public class Server
 
     private Socket _serverSocket = null;
 
-    private HashSet<Thread> _threads = new HashSet<Thread>();
+    private HashSet<Task> _taskSet = new HashSet<Task>();
     private HashSet<Socket> _clientSockets = new HashSet<Socket>();
     private ChatCache _chatCache = new ChatCache(20);
     private SendHandler _sendHandler = new SendHandler();
@@ -33,74 +33,74 @@ public class Server
         _serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _serverSocket.Bind(IPEndPoint.Parse(this.Host +  ":" + this.Port));
         _serverSocket.Listen(16);
-        CreateOneWait();
-        MainLoop();
+        AsyncStarter().Wait();
     }
 
-    protected void MainLoop()
+    protected async Task AsyncStarter()
+    {
+        Accpet();
+        await MainLoop();
+    }
+
+    protected async Task Accpet()
     {
         while (true)
         {
-            lock (_msgList)
-            {
-                foreach (var item in _msgList)
-                {
-                    using (var ms = new MemoryStream())
-                    {
-                        Serializer.Serialize(ms, item);
-                        _sendHandler.Send(ms.ToArray());
-                    }
-                }
-                _msgList.Clear();
-            }
-
-            Thread.Sleep(100);  // 100ms
+            Socket socket = await _serverSocket.AcceptAsync();
+            _clientSockets.Add(socket);
+            Console.WriteLine($"Client {socket.RemoteEndPoint} connected");
+            Receive(socket);
         }
     }
 
-    protected void CreateOneWait()
-    {
-        Thread thread = new Thread(WaitOne);
-        thread.Start();
-        _threads.Add(thread);
-    }
-
-    public void WaitOne()
+    protected async Task Receive(Socket socket)
     {
         StringBuilder buffer = new StringBuilder();
-        Socket clientSocket = _serverSocket.Accept();
-        _clientSockets.Add(clientSocket);
-        Console.WriteLine($"Client {clientSocket.RemoteEndPoint} connected");
-        // 开启一个新线程去监听连接
-        CreateOneWait();
         const int ReadLength = 1024;
         byte[] bytes = new byte[ReadLength];
         try
         {
-            while (clientSocket.Connected)
+            while (socket.Connected)
             {
                 // 流式传输，可能出现多条消息合并在一起
-                int byteLength = clientSocket.Receive(bytes);
+                int byteLength = await socket.ReceiveAsync(bytes);
                 if (byteLength > 0)
                 {
                     buffer.Append(Encoding.UTF8.GetString(bytes, 0, byteLength));
                 }
 
-                ChatItem chatItem = new ChatItem { UserName = clientSocket.RemoteEndPoint.ToString(), Message = buffer.ToString() };
+                ChatItem chatItem = new ChatItem { UserName = socket.RemoteEndPoint.ToString(), Message = buffer.ToString() };
                 Console.WriteLine(chatItem.ToString());
-                lock (_msgList)
-                {
-                    _msgList.Add(chatItem);
-                }
+                _msgList.Add(chatItem);
                 buffer.Clear();
             }
         }
         catch (SocketException e)
         {
-            Console.WriteLine(e);
-            clientSocket.Close();
+            if (e.SocketErrorCode == SocketError.ConnectionReset)
+            {
+                Console.WriteLine($"Client {socket.RemoteEndPoint} disconnected");
+            }
+            socket.Close();
         }
-        _clientSockets.Remove(clientSocket);
-        _threads.Remove(Thread.CurrentThread);
+        _clientSockets.Remove(socket);
     }
+
+    protected async Task MainLoop()
+    {
+        while (true)
+        {
+            foreach (var item in _msgList)
+            {
+                using (var ms = new MemoryStream())
+                {
+                    Serializer.Serialize(ms, item);
+                    await _sendHandler.SendAsync(ms.ToArray());
+                }
+            }
+            _msgList.Clear();
+            await Task.Delay(100); // 100ms
+        }
+    }
+
 }

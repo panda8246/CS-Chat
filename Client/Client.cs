@@ -6,6 +6,9 @@ using System.IO;
 using Common;
 using ProtoBuf;
 
+/// <summary>
+/// Client暂时不用异步Socket，ReadLine是阻塞实现的
+/// </summary>
 public class Client
 {
     private Socket _socket = null;

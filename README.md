@@ -53,4 +53,4 @@ TCP是字节流协议，没有消息边界概念，需要应用层自己定义�
 BinaryFormatter二进制序列化操作已被标记为不安全：https://learn.microsoft.com/zh-cn/dotnet/standard/serialization/binaryformatter-security-guide
 
 
-MemoryStream写入后，想读取时需要先设置流的位置到开头：ms.Postion = 0;
+MemoryStream写入后，想读取时需要先设置流的位置到开头：ms.Position = 0;

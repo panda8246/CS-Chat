@@ -38,4 +38,9 @@ public class SendHandler
         }
     }
 
+    public async Task SendAsync(byte[] bytes)
+    {
+        await Task.WhenAll(sendSockets.Select(socket => socket.SendAsync(bytes)));
+    }
+
 }

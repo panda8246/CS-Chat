@@ -33,7 +33,7 @@ public class Server
         _serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _serverSocket.Bind(IPEndPoint.Parse(this.Host +  ":" + this.Port));
         _serverSocket.Listen(16);
-        CreateOneWait();
+        _serverSocket.Blocking = false;
         MainLoop();
     }
 
@@ -41,66 +41,91 @@ public class Server
     {
         while (true)
         {
-            lock (_msgList)
-            {
-                foreach (var item in _msgList)
-                {
-                    using (var ms = new MemoryStream())
-                    {
-                        Serializer.Serialize(ms, item);
-                        _sendHandler.Send(ms.ToArray());
-                    }
-                }
-                _msgList.Clear();
-            }
-
-            Thread.Sleep(100);  // 100ms
+            CheckConnect();
+            CheckReceive();
+            CheckSend();
+            Thread.Sleep(10);  // 100ms
         }
     }
 
-    protected void CreateOneWait()
+    protected void CheckConnect()
     {
-        Thread thread = new Thread(WaitOne);
-        thread.Start();
-        _threads.Add(thread);
-    }
-
-    public void WaitOne()
-    {
-        StringBuilder buffer = new StringBuilder();
-        Socket clientSocket = _serverSocket.Accept();
-        _clientSockets.Add(clientSocket);
-        Console.WriteLine($"Client {clientSocket.RemoteEndPoint} connected");
-        // 开启一个新线程去监听连接
-        CreateOneWait();
-        const int ReadLength = 1024;
-        byte[] bytes = new byte[ReadLength];
         try
         {
-            while (clientSocket.Connected)
+            Socket clientSocket = _serverSocket.Accept();
+            _clientSockets.Add(clientSocket);
+            Console.WriteLine($"Client {clientSocket.RemoteEndPoint} connected");
+        }
+        catch (SocketException ex)
+        {
+
+        }
+    }
+
+    List<Socket> disconnectedSockets = new List<Socket>();
+    const int ReadLength = 1024;
+    byte[] bytes = new byte[ReadLength];
+    StringBuilder buffer = new StringBuilder();
+    protected void CheckReceive()
+    {
+        foreach (var scoket in _clientSockets)
+        {
+            buffer.Clear();
+            if (!scoket.Connected)
             {
+                disconnectedSockets.Add(scoket);
+                continue;
+            }
+
+            try
+            {
+                int byteLength = scoket.Receive(bytes);
                 // 流式传输，可能出现多条消息合并在一起
-                int byteLength = clientSocket.Receive(bytes);
                 if (byteLength > 0)
                 {
                     buffer.Append(Encoding.UTF8.GetString(bytes, 0, byteLength));
                 }
-
-                ChatItem chatItem = new ChatItem { UserName = clientSocket.RemoteEndPoint.ToString(), Message = buffer.ToString() };
+                ChatItem chatItem = new ChatItem { UserName = scoket.RemoteEndPoint.ToString(), Message = buffer.ToString() };
                 Console.WriteLine(chatItem.ToString());
-                lock (_msgList)
+                _msgList.Add(chatItem);
+            }
+            catch (SocketException ex)
+            {
+                if (ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.NotConnected)
                 {
-                    _msgList.Add(chatItem);
+                    Console.WriteLine($"SocketException: {ex.Message}");
+                    disconnectedSockets.Add(scoket);
                 }
-                buffer.Clear();
+                else
+                {
+                    // Console.WriteLine($"SocketException: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception: {ex.Message}");
+                disconnectedSockets.Add(scoket);
             }
         }
-        catch (SocketException e)
+
+        foreach (var socket in disconnectedSockets)
         {
-            Console.WriteLine(e);
-            clientSocket.Close();
+            socket.Close();
+            _clientSockets.Remove(socket);
         }
-        _clientSockets.Remove(clientSocket);
-        _threads.Remove(Thread.CurrentThread);
+        disconnectedSockets.Clear();
+    }
+
+    protected void CheckSend()
+    {
+        foreach (var item in _msgList)
+        {
+            using (var ms = new MemoryStream())
+            {
+                Serializer.Serialize(ms, item);
+                _sendHandler.Send(ms.ToArray());
+            }
+        }
+        _msgList.Clear();
     }
 }

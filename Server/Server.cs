@@ -45,9 +45,11 @@ public class Server
             {
                 foreach (var item in _msgList)
                 {
-                    MemoryStream ms = new MemoryStream();
-                    Serializer.Serialize(ms, item);
-                    _sendHandler.Send(ms.ToArray());
+                    using (var ms = new MemoryStream())
+                    {
+                        Serializer.Serialize(ms, item);
+                        _sendHandler.Send(ms.ToArray());
+                    }
                 }
                 _msgList.Clear();
             }

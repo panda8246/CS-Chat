@@ -45,13 +45,15 @@ public class Client
         while (_socket.Connected)
         {
             int byteLength = _socket.Receive(bytes);
-            MemoryStream ms = new MemoryStream();
             if (byteLength > 0)
             {
-                ms.Write(bytes, 0, byteLength);
-                ms.Position = 0;
-                ChatItem item = Serializer.Deserialize<ChatItem>(ms);
-                Console.WriteLine(item.ToString());
+                using (var ms = new MemoryStream())
+                {
+                    ms.Write(bytes, 0, byteLength);
+                    ms.Position = 0;
+                    ChatItem item = Serializer.Deserialize<ChatItem>(ms);
+                    Console.WriteLine(item.ToString());
+                }
             }
         }
     }

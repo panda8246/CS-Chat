@@ -17,7 +17,16 @@ public class SendHandler
 
     public void SetSockets(HashSet<Socket> sockets)
     {
-        sendSockets =  sockets;
+        sendSockets = sockets;
+    }
+
+    public void SetSockets(Socket socket)
+    {
+        if (sendSockets == null)
+        {
+            sendSockets = new HashSet<Socket>();
+        }
+        sendSockets.Add(socket);
     }
 
     public void Send(byte[] bytes)

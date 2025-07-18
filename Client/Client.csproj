@@ -11,4 +11,8 @@
     <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="protobuf-net" Version="3.3.0-g6785ecbb35" />
+  </ItemGroup>
+
 </Project>

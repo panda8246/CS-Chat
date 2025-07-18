@@ -1,6 +1,10 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.IO;
+using Common;
+using ProtoBuf;
 
 public class Client
 {
@@ -41,12 +45,14 @@ public class Client
         while (_socket.Connected)
         {
             int byteLength = _socket.Receive(bytes);
+            MemoryStream ms = new MemoryStream();
             if (byteLength > 0)
             {
-                _buffer.Append(Encoding.UTF8.GetString(bytes, 0, byteLength));
+                ms.Write(bytes, 0, byteLength);
+                ms.Position = 0;
+                ChatItem item = Serializer.Deserialize<ChatItem>(ms);
+                Console.WriteLine(item.ToString());
             }
-            Console.WriteLine("from server： " + _buffer.ToString());
-            _buffer.Clear();
         }
     }
 }

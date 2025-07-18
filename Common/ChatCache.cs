@@ -1,11 +1,17 @@
-﻿namespace Common;
+﻿using ProtoBuf;
 
-[Serializable]
+namespace Common;
+
+[ProtoContract]
 public struct ChatItem
 {
-    public int UserID;
-    public string UserName;
-    public string Message;
+    [ProtoMember(1)]public string UserName;
+    [ProtoMember(2)]public string Message;
+
+    public string ToString()
+    {
+        return $"{UserName} says: {Message}";
+    }
 }
 
 public class ChatCache

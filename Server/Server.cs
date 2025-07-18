@@ -2,7 +2,9 @@ using System.Collections;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.IO;
 using Common;
+using ProtoBuf;
 
 
 public class Server
@@ -16,11 +18,12 @@ public class Server
     private HashSet<Socket> _clientSockets = new HashSet<Socket>();
     private ChatCache _chatCache = new ChatCache(20);
     private SendHandler _sendHandler = new SendHandler();
-    private List<byte[]> _msgList = new List<byte[]>();
+    private List<ChatItem> _msgList = new List<ChatItem>();
 
 
     public Server(int port)
     {
+
         Port = port;
         _sendHandler.SetSockets(_clientSockets);
     }
@@ -41,7 +44,11 @@ public class Server
             lock (_msgList)
             {
                 foreach (var item in _msgList)
-                    _sendHandler.Send(item);
+                {
+                    MemoryStream ms = new MemoryStream();
+                    Serializer.Serialize(ms, item);
+                    _sendHandler.Send(ms.ToArray());
+                }
                 _msgList.Clear();
             }
 
@@ -77,11 +84,11 @@ public class Server
                     buffer.Append(Encoding.UTF8.GetString(bytes, 0, byteLength));
                 }
 
-                var str = $"{clientSocket.RemoteEndPoint} says: {buffer}";
-                Console.WriteLine(str);
+                ChatItem chatItem = new ChatItem { UserName = clientSocket.RemoteEndPoint.ToString(), Message = buffer.ToString() };
+                Console.WriteLine(chatItem.ToString());
                 lock (_msgList)
                 {
-                    _msgList.Add(Encoding.UTF8.GetBytes(str));
+                    _msgList.Add(chatItem);
                 }
                 buffer.Clear();
             }

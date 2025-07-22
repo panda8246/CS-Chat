@@ -12,7 +12,7 @@ using ProtoBuf;
 public class Client
 {
     private Socket _socket = null;
-    private StringBuilder _buffer = new StringBuilder();
+    private ChatCache chatCache = new ChatCache(20);
 
     public Client()
     {
@@ -55,9 +55,19 @@ public class Client
                     ms.Write(bytes, 0, byteLength);
                     ms.Position = 0;
                     ChatItem item = Serializer.Deserialize<ChatItem>(ms);
-                    Console.WriteLine(item.ToString());
+                    chatCache.AddChatItem(item);
                 }
+                UpdateChat();
             }
+        }
+    }
+
+    public void UpdateChat()
+    {
+        Console.Clear();
+        foreach (var item in chatCache.GetChatItem(20))
+        {
+            Console.WriteLine(item.ToString());
         }
     }
 }

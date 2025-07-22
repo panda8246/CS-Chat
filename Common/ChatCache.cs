@@ -29,9 +29,9 @@ public class ChatCache
     {
         lock(this)
         {
-            chatItems.Append(chatItem);
+            chatItems.Enqueue(chatItem);
             if (chatItems.Count > _queueLength)
-                chatItems.Peek();
+                chatItems.Dequeue();
         }
     }
 

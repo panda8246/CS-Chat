@@ -9,6 +9,9 @@ namespace Common;
 public class SendHandler
 {
     private HashSet<Socket> sendSockets;
+    private List<byte> buffer = new List<byte>();
+    // 发送缓冲大于该值时才发送
+    private int sendBufferSize = 128;
 
     public SendHandler()
     {
@@ -31,10 +34,18 @@ public class SendHandler
 
     public void Send(byte[] bytes)
     {
-        // TODO sendSockets列表线程不安全
-        foreach (Socket socket in sendSockets)
+        buffer.AddRange(bytes);
+        if (buffer.Count >= sendBufferSize)
         {
-            socket.Send(bytes);
+            byte[] bufferArray = buffer.ToArray();
+            lock (sendSockets)
+            {
+                foreach (Socket socket in sendSockets)
+                {
+                    socket.Send(bufferArray);
+                }
+            }
+            buffer.Clear();
         }
     }
 

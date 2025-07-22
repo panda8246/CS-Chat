@@ -12,7 +12,8 @@ using ProtoBuf;
 public class Client
 {
     private Socket _socket = null;
-    private ChatCache chatCache = new ChatCache(20);
+    private ChatCache _chatCache = new ChatCache(20);
+    private SendHandler _sendHandler = new SendHandler();
 
     public Client()
     {
@@ -23,6 +24,7 @@ public class Client
     {
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _socket.Connect(IPEndPoint.Parse("127.0.0.1:8080"));
+        _sendHandler.SetSockets(_socket);
         Thread wirteThread = new Thread(Write);
         Thread readThread = new Thread(ReadFromServer);
         wirteThread.Start();
@@ -38,7 +40,7 @@ public class Client
             string str = Console.ReadLine();
             if (str == null)
                 continue;
-            _socket.Send(Encoding.UTF8.GetBytes(str));
+            _sendHandler.Send(Encoding.UTF8.GetBytes(str));
         }
     }
 
@@ -55,7 +57,7 @@ public class Client
                     ms.Write(bytes, 0, byteLength);
                     ms.Position = 0;
                     ChatItem item = Serializer.Deserialize<ChatItem>(ms);
-                    chatCache.AddChatItem(item);
+                    _chatCache.AddChatItem(item);
                 }
                 UpdateChat();
             }
@@ -65,7 +67,7 @@ public class Client
     public void UpdateChat()
     {
         Console.Clear();
-        foreach (var item in chatCache.GetChatItem(20))
+        foreach (var item in _chatCache.GetChatItem(20))
         {
             Console.WriteLine(item.ToString());
         }

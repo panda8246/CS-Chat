@@ -62,44 +62,11 @@ public class CommonSocket
 
     public void ReceiveLoop()
     {
-        while (socket.Connected)
-        {
-            var length = socket.Receive(receiveBuffer);
-        }
-    }
-
-    public async Task ReceiveLoopAsync()
-    {
         try
         {
             while (socket.Connected)
             {
-                var length = await socket.ReceiveAsync(receiveBuffer);
-                if (length > 0)
-                {
-                    int receiveStart = 0;
-                    while (receiveStart < length)
-                    {
-                        if (messageLength == 0)
-                        {
-                            messageLength = BitConverter.ToUInt32(receiveBuffer, 0);
-                            hadReceive = 0;
-                            receiveStart = 4;   // 跳过消息头
-                        }
-                        var remain = messageLength - hadReceive;
-                        var roundLength = int.Min((int)remain, (length - receiveStart));
-                        // 这里还要复制一次内存，有什么方式能消除?
-                        Array.Copy(receiveBuffer, receiveStart, messageBuffer, hadReceive, roundLength);
-                        hadReceive += (uint)roundLength;
-                        receiveStart += roundLength;
-                        if (hadReceive >= messageLength)
-                        {
-                            Memory<byte> memory = messageBuffer.AsMemory(0, (int)messageLength);
-                            ReceiveCallback.Invoke(memory);
-                            messageLength = 0;
-                        }
-                    }
-                }
+                ProcessMessage(socket.Receive(receiveBuffer));
             }
         }
         catch (SocketException e)
@@ -109,6 +76,55 @@ public class CommonSocket
                 Console.WriteLine($"Client {socket.RemoteEndPoint} disconnected");
             }
             socket.Close();
+        }
+    }
+
+    public async Task ReceiveLoopAsync()
+    {
+        try
+        {
+            while (socket.Connected)
+            {
+                ProcessMessage(await socket.ReceiveAsync(receiveBuffer));
+            }
+        }
+        catch (SocketException e)
+        {
+            if (e.SocketErrorCode == SocketError.ConnectionReset)
+            {
+                Console.WriteLine($"Client {socket.RemoteEndPoint} disconnected");
+            }
+            socket.Close();
+        }
+    }
+
+    public void ProcessMessage(int length)
+    {
+        if (length > 0)
+        {
+            int receiveStart = 0;
+            while (receiveStart < length)
+            {
+                if (messageLength == 0)
+                {
+                    messageLength = BitConverter.ToUInt32(receiveBuffer, 0);
+                    hadReceive = 0;
+                    receiveStart = 4;   // 跳过消息头
+                }
+                var remain = messageLength - hadReceive;
+                var roundLength = int.Min((int)remain, (length - receiveStart));
+                // 这里还要复制一次内存，有什么方式能消除?
+                Array.Copy(receiveBuffer, receiveStart, messageBuffer, hadReceive, roundLength);
+                hadReceive += (uint)roundLength;
+                receiveStart += roundLength;
+                if (hadReceive >= messageLength)
+                {
+                    // 直接引用内存，避免复制
+                    Memory<byte> memory = messageBuffer.AsMemory(0, (int)messageLength);
+                    ReceiveCallback.Invoke(memory);
+                    messageLength = 0;
+                }
+            }
         }
     }
 }

@@ -16,12 +16,12 @@ public struct ChatItem
 
 public class ChatCache
 {
-    Queue<ChatItem> chatItems = new Queue<ChatItem>();
-    private int _queueLength = 100;
+    Queue<ChatItem> chatItems = new ();
+    private readonly int queueLength;
 
     public ChatCache(int queueLength)
     {
-        this._queueLength = queueLength;
+        this.queueLength = queueLength;
     }
 
 
@@ -30,7 +30,7 @@ public class ChatCache
         lock(this)
         {
             chatItems.Enqueue(chatItem);
-            if (chatItems.Count > _queueLength)
+            if (chatItems.Count > queueLength)
                 chatItems.Dequeue();
         }
     }
@@ -44,10 +44,8 @@ public class ChatCache
         var idx = 0;
         // 只取队列末尾的count条
         int skip = chatItems.Count - count;
-        int i = 0;
-        foreach (var item in chatItems)
+        foreach (var item in chatItems.Skip(skip))
         {
-            if (i++ < skip) continue;
             items[idx++] = item;
         }
         return items;
